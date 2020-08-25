@@ -6,6 +6,8 @@ const port = 3939
 
 app.use(bodyParser.json());
 app.use(cors());
+var http = require('http').createServer(app);
+
 
 const { Docker } = require('node-docker-api');
 
@@ -14,15 +16,19 @@ const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 const registerInNetwork = async (containerData) => {
     const exists = await docker.network.list({ filters: { "name": ["ceresnetwork"] } });
 
-    console.log(exists);
-
     if (exists.length === 0) {
-        docker.network.create({ name: 'ceresnetwork' }).then(async network => {
-            await network.connect(containerData);
-        });
+        const network = await docker.network.create({ name: 'ceresnetwork' });
+        const cc = await network.connect(containerData);
+        return cc;
     } else {
-        const network = docker.network.get({ id: exists[0].Id });
-        await network.connect(containerData);
+        const network = docker.network.get(exists[0].data.Id);
+        try {
+            const cc = await network.connect(containerData)
+            return cc;
+        } catch (error) {
+            console.log('error', error);
+        } 
+
     }
 
 }
@@ -129,18 +135,14 @@ app.post('/container/stop', (req, res) => {
         .catch(error => res.json(error.json));
 })
 
-app.post('/container/logs', (req, res) => {
+app.post('/container/status', (req, res) => {
     const id = req.body.id;
 
     try {
         const container = docker.container.get(id);
-        container.fs.get({ path: '/zilliqa/logs/isolated-server.logs' })
-            .then(stream => {
-                const file = fs.createWriteStream('test.tar');
-                res.pipe(file);
-                stream.on('data', data => res.write(data.toString()));
-                stream.on('end', res.end());
-            })
+        container.status().then(status => {
+            res.json(status.data);
+        })
     } catch (error) {
         res.json(error);
     }
@@ -223,8 +225,83 @@ app.post('/image/build', (req, res) => {
         .catch(error => console.log(error));
 });
 
-app.listen(port, async () => {
-    console.log(`App listening at http://localhost:${port}`);
+
+const io = require('socket.io')(http);
 
 
+io.on('connection', socket => {
+    const promisifyStream = (stream, channel) => new Promise((resolve, reject) => {
+        stream.on('data', data => io.emit(channel, JSON.stringify({ stream: data.toString('UTF-8') })))
+        stream.on('end', resolve)
+        stream.on('error', reject)
+    });
+
+    socket.on('container-logs', async (id) => {
+        console.log('Get container logs: ' + id);
+
+        const container = docker.container.get(id);
+
+        const status = await container.status();
+
+        const since = Math.round(new Date(status.data.State.StartedAt).getTime() / 1000 - 100);
+
+        container.logs({
+            follow: true,
+            stdout: true,
+            stderr: true,
+            tail: 100,
+            since: since
+        }).then(stream => promisifyStream(stream, id))
+            .catch(error => promisifyStream(error, id));
+    });
+
+    socket.on('build-image', async (image) => {
+        const name = image.image;
+        const file = `./images/${name}.tar.gz`;
+        const labels = image.labels;
+
+        console.log('Build image: ' + image.image);
+
+        docker.image.build(file, {
+            t: name,
+            pull: name,
+            nocache: true,
+            rm: true,
+            labels
+        })
+            .then(stream => promisifyStream(stream, 'install-logs'))
+            .then(async () => {
+                const createOptions = {
+                    Image: `${image.image}:latest`,
+                    name: image.image,
+                    Labels: {
+                        "ceres": image.image,
+                        "containerPort": image.labels.containerPort,
+                        "hostPort": image.labels.hostPort,
+                        "name": image.labels.name
+                    },
+                    HostConfig: {
+                        PortBindings: {}
+                    },
+                    ExposedPorts: {}
+                };
+                createOptions['HostConfig']['PortBindings'][image.labels.containerPort] = [
+                    { "HostPort": image.labels.hostPort }
+                ];
+                createOptions['ExposedPorts'][image.labels.containerPort] = {};
+
+                const container = await docker.container.create(createOptions);
+                //await container.start();
+                await registerInNetwork({ Container: container.data.Id });
+
+                console.log('Container successfully generated ' + container.data.Id);
+                io.emit('install-logs', JSON.stringify({ stream: 'Container successfully generated ' + container.data.Id }));
+                io.emit('install-logs', JSON.stringify({ success: true }));
+            })
+            .catch(error => console.log(error));
+    });
+});
+
+http.listen(port, () => {
+    console.log(`Server listening on ${port}`);
 });
