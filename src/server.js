@@ -27,7 +27,7 @@ const registerInNetwork = async (containerData) => {
             return cc;
         } catch (error) {
             console.log('error', error);
-        } 
+        }
 
     }
 
