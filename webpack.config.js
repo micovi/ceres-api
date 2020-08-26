@@ -19,7 +19,7 @@ module.exports = {
     mode: "production",
     output: {
         path: path.join(__dirname, 'lib'),
-        filename: 'backend.js'
+        filename: 'server.js'
     },
     externals: nodeModules,
     plugins: [
