@@ -17,11 +17,18 @@ module.exports = {
     entry: './src/server.js',
     target: 'node',
     mode: "production",
+    module: {
+        rules: [
+            {
+                test: /\.js$/,
+                use: ["remove-hashbag-loader"]
+            }
+        ],
+    },
     output: {
         path: path.join(__dirname, 'lib'),
         filename: 'server.js'
     },
-    externals: nodeModules,
     plugins: [
         new CleanWebpackPlugin(),
         new CopyPlugin({
@@ -30,5 +37,10 @@ module.exports = {
             ],
         }),
     ],
-    devtool: 'sourcemap'
+    devtool: 'sourcemap',
+    resolveLoader: {
+        alias: {
+            "remove-hashbag-loader": path.join(__dirname, "./loaders/remove-hashbag-loader")
+        }
+    }
 }
