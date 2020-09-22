@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const express = require("express");
 const bodyParser = require("body-parser");
 var cors = require("cors");
@@ -12,7 +14,7 @@ const { Docker } = require("node-docker-api");
 
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
-const registerInNetwork = async (containerData) => {
+const registerInNetwork = async (containerData: any) => {
   const exists = await docker.network.list({
     filters: { name: ["ceresnetwork"] },
   });
@@ -32,45 +34,38 @@ const registerInNetwork = async (containerData) => {
   }
 };
 
-const promisifyStream = (stream) =>
-  new Promise((resolve, reject) => {
-    stream.on("data", (data) => console.log(data.toString()));
-    stream.on("end", resolve);
-    stream.on("error", reject);
-  });
-
-app.get("/container/running", (req, res) => {
+app.get("/container/running", (req: any, res: any) => {
   docker.container
     .list({ filters: { label: ["ceres"] } })
     // Inspect
-    .then((containers) => {
-      const list = containers.map((item) => item.data);
+    .then((containers: []) => {
+      const list = containers.map((item: { data: any }) => item.data);
 
       res.json(list);
     })
-    .catch((error) => console.log(error));
+    .catch((error: Error) => console.log(error));
 });
 
-app.get("/container/list", (req, res) => {
+app.get("/container/list", (req: any, res: any) => {
   docker.container
     .list({ all: true, filters: { label: ["ceres"] } })
     // Inspect
-    .then((containers) => {
-      const list = containers.map((item) => item.data);
+    .then((containers: any) => {
+      const list = containers.map((item: any) => item.data);
 
       res.json(list);
     })
-    .catch((error) => console.log(error));
+    .catch((error: any) => console.log(error));
 });
 
-const startContainer = async (image) => {
+const startContainer = async (image: any) => {
   const containers = await docker.container.list({
     all: true,
     filters: { label: ["ceres"] },
   });
 
   const exists = containers.find(
-    (item) => item.data.Labels.ceres === image.ceres
+    (item: any) => item.data.Labels.ceres === image.ceres
   );
 
   if (exists !== undefined) {
@@ -108,51 +103,51 @@ const startContainer = async (image) => {
   }
 };
 
-app.post("/container/start", (req, res) => {
+app.post("/container/start", (req: any, res: any) => {
   const image = req.body.image || undefined;
 
   docker.container
     .list({ all: true, filters: { label: ["ceres"] } })
-    .then((containers) => {
+    .then((containers: any) => {
       const exists = containers.find(
-        (item) => item.data.Labels.ceres === image
+        (item: any) => item.data.Labels.ceres === image
       );
 
       if (exists !== undefined) {
         exists
           .start()
-          .then(async (container) => {
+          .then(async (container: any) => {
             await registerInNetwork({ Container: container.data.Id });
             const status = await container.status();
 
             res.json(status.data);
           })
 
-          .catch((error) => res.json(error.json));
+          .catch((error: any) => res.json(error.json));
       } else {
         res.end("Container not found. Please reinstall Service Image");
       }
     })
-    .catch((error) => res.json(error.json));
+    .catch((error: any) => res.json(error.json));
 });
 
-app.post("/container/stop", (req, res) => {
+app.post("/container/stop", (req: any, res: any) => {
   const id = req.body.id;
 
   const container = docker.container.get(id);
 
   container
     .stop()
-    .then((response) => res.json(response))
-    .catch((error) => res.json(error.json));
+    .then((response: any) => res.json(response))
+    .catch((error: any) => res.json(error.json));
 });
 
-app.post("/container/status", (req, res) => {
+app.post("/container/status", (req: any, res: any) => {
   const id = req.body.id;
 
   try {
     const container = docker.container.get(id);
-    container.status().then((status) => {
+    container.status().then((status: any) => {
       res.json(status.data);
     });
   } catch (error) {
@@ -160,13 +155,13 @@ app.post("/container/status", (req, res) => {
   }
 });
 
-app.get("/image/list", (req, res) => {
-  docker.image.list({ filters: { label: ["ceres"] } }).then((images) => {
+app.get("/image/list", (req: any, res: any) => {
+  docker.image.list({ filters: { label: ["ceres"] } }).then((images: any) => {
     res.json(images);
   });
 });
 
-app.get("/image/available", (req, res) => {
+app.get("/image/available", (req: any, res: any) => {
   const images = [
     {
       name: "Isolated Server Instance",
@@ -203,7 +198,7 @@ app.get("/image/available", (req, res) => {
   return res.json(images);
 });
 
-app.post("/image/build", (req, res) => {
+app.post("/image/build", (req: any, res: any) => {
   const name = req.body.image;
   const file = `./images/${name}.tar.gz`;
   const labels = req.body.labels;
@@ -217,9 +212,9 @@ app.post("/image/build", (req, res) => {
       labels,
     })
     .then(
-      (stream) =>
+      (stream:any) =>
         new Promise((resolve, reject) => {
-          stream.on("data", (data) => console.log(data.toString()));
+          stream.on("data", (data:any) => console.log(data.toString()));
           stream.on("end", async () => {
             const im = await docker.image.get(name).status();
             const container = await startContainer(
@@ -229,29 +224,38 @@ app.post("/image/build", (req, res) => {
             console.log(container);
             res.json(container);
           });
-          stream.on("error", (error) => res.json(error));
+          stream.on("error", (error: any) => res.json(error));
         })
     )
-    .then(async (image) => {
+    .then(async (image: any) => {
       const container = await startContainer(image);
       res.json(container);
     })
-    .catch((error) => console.log(error));
+    .catch((error: any) => console.log(error));
 });
 
 const io = require("socket.io")(http);
 
-io.on("connection", (socket) => {
-  const promisifyStream = (stream, channel) =>
+io.on("connection", (socket: any) => {
+  const promisifyStream = (stream: any, channel: any) =>
     new Promise((resolve, reject) => {
-      stream.on("data", (data) =>
+      stream.on("data", (data: any) =>
         io.emit(channel, JSON.stringify({ stream: data.toString("UTF-8") }))
       );
       stream.on("end", resolve);
       stream.on("error", reject);
     });
 
-  socket.on("container-logs", async (id) => {
+  socket.on("docker-ping", async () => {
+    try {
+      const ping = await docker.ping();
+      io.emit("docker-ping", { success: ping });
+    } catch (error) {
+      io.emit("docker-ping", error);
+    }
+  });
+
+  socket.on("container-logs", async (id: any) => {
     console.log("Get container logs: " + id);
 
     const container = docker.container.get(id);
@@ -270,17 +274,17 @@ io.on("connection", (socket) => {
         tail: 100,
         since: since,
       })
-      .then((stream) => promisifyStream(stream, id))
-      .catch((error) => promisifyStream(error, id));
+      .then((stream: any) => promisifyStream(stream, id))
+      .catch((error: any) => promisifyStream(error, id));
   });
 
-  socket.on("remove-image", async ({ image, container }) => {
+  socket.on("remove-image", async ({ image, container }: any) => {
     try {
-      const containerRemove = await docker.container
+      await docker.container
         .get(container)
         .delete({ force: true });
 
-      const imageRemove = await docker.image.get(image).remove();
+      await docker.image.get(image).remove();
 
       io.emit("uninstall-logs", JSON.stringify({ success: true }));
     } catch (error) {
@@ -288,7 +292,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("build-image", async (image) => {
+  socket.on("build-image", async (image: any) => {
     const name = image.image;
     const file = `./images/${name}.tar.gz`;
     const labels = image.labels;
@@ -303,7 +307,7 @@ io.on("connection", (socket) => {
         rm: true,
         labels,
       })
-      .then((stream) => promisifyStream(stream, "install-logs"))
+      .then((stream: any) => promisifyStream(stream, "install-logs"))
       .then(async () => {
         const createOptions = {
           Image: `${image.image}:latest`,
@@ -337,7 +341,7 @@ io.on("connection", (socket) => {
         );
         io.emit("install-logs", JSON.stringify({ success: true }));
       })
-      .catch((error) => console.log(error));
+      .catch((error: any) => console.log(error));
   });
 });
 
