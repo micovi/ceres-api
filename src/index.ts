@@ -2,6 +2,7 @@
 
 const express = require("express");
 const bodyParser = require("body-parser");
+const path = require("path");
 var cors = require("cors");
 const app = express();
 const port = 3939;
@@ -212,9 +213,9 @@ app.post("/image/build", (req: any, res: any) => {
       labels,
     })
     .then(
-      (stream:any) =>
+      (stream: any) =>
         new Promise((resolve, reject) => {
-          stream.on("data", (data:any) => console.log(data.toString()));
+          stream.on("data", (data: any) => console.log(data.toString()));
           stream.on("end", async () => {
             const im = await docker.image.get(name).status();
             const container = await startContainer(
@@ -294,10 +295,12 @@ io.on("connection", (socket: any) => {
 
   socket.on("build-image", async (image: any) => {
     const name = image.image;
-    const file = `./images/${name}.tar.gz`;
+    const fileName = `${name}.tar.gz`;
     const labels = image.labels;
 
     console.log("Build image: " + image.image);
+
+    const file = path.join(path.dirname(__dirname), 'extra', 'images', fileName);
 
     docker.image
       .build(file, {
