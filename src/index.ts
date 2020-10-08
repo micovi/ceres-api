@@ -35,6 +35,14 @@ const registerInNetwork = async (containerData: any) => {
   }
 };
 
+app.get("/docker-status", (req: any, res: any) => {
+  docker.ping().then((result: any) => {
+    res.json(result);
+  }).catch((err: any) => {
+    res.json(err);
+  });
+});
+
 app.get("/container/running", (req: any, res: any) => {
   docker.container
     .list({ filters: { label: ["ceres"] } })
