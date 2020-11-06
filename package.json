@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@types/ejs": "^2.6.0",
+    "@types/fs-extra": "^1.0.0",
     "@types/execa": "^2.0.0",
     "@types/inquirer": "^0.0.43",
     "@types/listr": "^0.14.2",
