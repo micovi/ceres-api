@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "ts-node src/index.ts",
-    "build": "tsc && shx rm -rf dist/images && shx cp -r ./images dist"
+    "build": "tsc"
   },
   "author": "",
   "license": "ISC",
