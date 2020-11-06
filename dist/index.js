@@ -392,7 +392,7 @@ io.on("connection", function (socket) {
             fileName = name + ".tar.gz";
             labels = image.labels;
             console.log("Build image: " + image.image);
-            file = path.join(path.dirname(__dirname), 'extra', 'images', fileName);
+            file = path.join(path.dirname(__dirname), 'images', fileName);
             docker.image
                 .build(file, {
                 t: name,
