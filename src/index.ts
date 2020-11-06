@@ -308,7 +308,7 @@ io.on("connection", (socket: any) => {
 
     console.log("Build image: " + image.image);
 
-    const file = path.join(path.dirname(__dirname), 'extra', 'images', fileName);
+    const file = path.join(path.dirname(__dirname), 'images', fileName);
 
     docker.image
       .build(file, {
