@@ -46,7 +46,7 @@ app.use(bodyParser.json());
 app.use(cors());
 var http = require("http").createServer(app);
 var Docker = require("node-docker-api").Docker;
-var docker = new Docker({ protocol: 'tcp', host: '127.0.0.1', port: 2375 });
+var docker = new Docker({ socketPath: "npipe:////./pipe/docker_engine" });
 var registerInNetwork = function (containerData) { return __awaiter(_this, void 0, void 0, function () {
     var exists, network, cc, network, cc, error_1;
     return __generator(this, function (_a) {
