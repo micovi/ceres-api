@@ -13,7 +13,7 @@ var http = require("http").createServer(app);
 
 const { Docker } = require("node-docker-api");
 
-const docker = new Docker({ protocol: 'tcp', host: '127.0.0.1', port: 2375 });
+const docker = new Docker({ socketPath: "npipe:////./pipe/docker_engine" });
 
 const registerInNetwork = async (containerData: any) => {
     const exists = await docker.network.list({
