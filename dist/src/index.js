@@ -46,7 +46,7 @@ app.use(bodyParser.json());
 app.use(cors());
 var http = require("http").createServer(app);
 var Docker = require("node-docker-api").Docker;
-var docker = new Docker({ socketPath: "//./pipe/docker_engine" });
+var docker = new Docker({ socketPath: "/var/run/docker.sock" });
 var registerInNetwork = function (containerData) { return __awaiter(_this, void 0, void 0, function () {
     var exists, network, cc, network, cc, error_1;
     return __generator(this, function (_a) {
@@ -446,6 +446,6 @@ io.on("connection", function (socket) {
     }); });
 });
 http.listen(port, function () {
-    console.log("Server listening on " + port);
+    console.log("Server listening on " + port + ". API");
 });
-//# sourceMappingURL=index-win.js.map
+//# sourceMappingURL=index.js.map

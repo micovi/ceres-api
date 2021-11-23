@@ -13,7 +13,7 @@ var http = require("http").createServer(app);
 
 const { Docker } = require("node-docker-api");
 
-const docker = new Docker({ socketPath: "/var/run/docker.sock" });
+let docker: any = undefined;
 
 const registerInNetwork = async (containerData: any) => {
   const exists = await docker.network.list({
@@ -243,6 +243,14 @@ app.post("/image/build", (req: any, res: any) => {
     .catch((error: any) => console.log(error));
 });
 
+app.post('/docker-init', (req: any, res: any) => {
+  const dpath = req.body.docker_path;
+
+  docker = new Docker({ socketPath: dpath })
+
+  res.json(docker);
+});
+
 const io = require("socket.io")(http);
 
 io.on("connection", (socket: any) => {
@@ -293,41 +301,39 @@ io.on("connection", (socket: any) => {
         .get(container)
         .delete({ force: true });
 
-      await docker.image.get(image).remove();
+      await docker.image.get(image).remove({ force: true });
 
       io.emit("uninstall-logs", JSON.stringify({ success: true }));
     } catch (error) {
-      io.emit("uninstall-logs", JSON.stringify({ success: false }));
+
+      io.emit("uninstall-logs", JSON.stringify({ success: false, ...error.json }));
+
+    } finally {
+      io.emit("uninstall-logs", JSON.stringify({ success: true, status: "Container and image sucessfully removed." }));
     }
   });
 
   socket.on("build-image", async (image: any) => {
-    const name = image.image;
-    const fileName = `${name}.tar.gz`;
     const labels = image.labels;
 
     console.log("Build image: " + image.image);
 
-    const file = path.join(path.dirname(__dirname), 'images', fileName);
-
     docker.image
-      .build(file, {
-        t: name,
-        pull: name,
-        nocache: true,
-        rm: true,
-        labels,
+      .create({}, {
+        fromImage: image.image,
+        tag: image.tag,
+        labels
       })
       .then((stream: any) => promisifyStream(stream, "install-logs"))
       .then(async () => {
         const createOptions = {
-          Image: `${image.image}:latest`,
-          name: image.image,
+          Image: `${image.image}:${image.tag}`,
+          name: `ceres-${image.labels.ceres}`,
           Labels: {
             ceres: image.image,
             containerPort: image.labels.containerPort,
             hostPort: image.labels.hostPort,
-            name: image.labels.name,
+            name: `ceres-${image.labels.ceres}`,
           },
           HostConfig: {
             PortBindings: {},
@@ -357,5 +363,5 @@ io.on("connection", (socket: any) => {
 });
 
 http.listen(port, () => {
-  console.log(`Server listening on ${port}`);
+  console.log(`Server listening on ${port}.API`);
 });

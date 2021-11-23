@@ -1,9 +1,21 @@
 #!/usr/bin/env node
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
         function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
@@ -45,7 +57,7 @@ app.use(bodyParser.json());
 app.use(cors());
 var http = require("http").createServer(app);
 var Docker = require("node-docker-api").Docker;
-var docker = new Docker({ socketPath: "/var/run/docker.sock" });
+var docker = undefined;
 var registerInNetwork = function (containerData) { return __awaiter(_this, void 0, void 0, function () {
     var exists, network, cc, network, cc, error_1;
     return __generator(this, function (_a) {
@@ -301,6 +313,11 @@ app.post("/image/build", function (req, res) {
     }); })
         .catch(function (error) { return console.log(error); });
 });
+app.post('/docker-init', function (req, res) {
+    var dpath = req.body.docker_path;
+    docker = new Docker({ socketPath: dpath });
+    res.json(docker);
+});
 var io = require("socket.io")(http);
 io.on("connection", function (socket) {
     var promisifyStream = function (stream, channel) {
@@ -363,42 +380,40 @@ io.on("connection", function (socket) {
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _b.trys.push([0, 3, , 4]);
+                        _b.trys.push([0, 3, 4, 5]);
                         return [4 /*yield*/, docker.container
                                 .get(container)
                                 .delete({ force: true })];
                     case 1:
                         _b.sent();
-                        return [4 /*yield*/, docker.image.get(image).remove()];
+                        return [4 /*yield*/, docker.image.get(image).remove({ force: true })];
                     case 2:
                         _b.sent();
                         io.emit("uninstall-logs", JSON.stringify({ success: true }));
-                        return [3 /*break*/, 4];
+                        return [3 /*break*/, 5];
                     case 3:
                         error_3 = _b.sent();
-                        io.emit("uninstall-logs", JSON.stringify({ success: false }));
-                        return [3 /*break*/, 4];
-                    case 4: return [2 /*return*/];
+                        io.emit("uninstall-logs", JSON.stringify(__assign({ success: false }, error_3.json)));
+                        return [3 /*break*/, 5];
+                    case 4:
+                        io.emit("uninstall-logs", JSON.stringify({ success: true, status: "Container and image sucessfully removed." }));
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
                 }
             });
         });
     });
     socket.on("build-image", function (image) { return __awaiter(_this, void 0, void 0, function () {
-        var name, fileName, labels, file;
+        var labels;
         var _this = this;
         return __generator(this, function (_a) {
-            name = image.image;
-            fileName = name + ".tar.gz";
             labels = image.labels;
             console.log("Build image: " + image.image);
-            file = path.join(path.dirname(__dirname), 'images', fileName);
             docker.image
-                .build(file, {
-                t: name,
-                pull: name,
-                nocache: true,
-                rm: true,
-                labels: labels,
+                .create({}, {
+                fromImage: image.image,
+                tag: image.tag,
+                labels: labels
             })
                 .then(function (stream) { return promisifyStream(stream, "install-logs"); })
                 .then(function () { return __awaiter(_this, void 0, void 0, function () {
@@ -407,13 +422,13 @@ io.on("connection", function (socket) {
                     switch (_a.label) {
                         case 0:
                             createOptions = {
-                                Image: image.image + ":latest",
-                                name: image.image,
+                                Image: image.image + ":" + image.tag,
+                                name: "ceres-" + image.labels.ceres,
                                 Labels: {
                                     ceres: image.image,
                                     containerPort: image.labels.containerPort,
                                     hostPort: image.labels.hostPort,
-                                    name: image.labels.name,
+                                    name: "ceres-" + image.labels.ceres,
                                 },
                                 HostConfig: {
                                     PortBindings: {},
@@ -445,6 +460,6 @@ io.on("connection", function (socket) {
     }); });
 });
 http.listen(port, function () {
-    console.log("Server listening on " + port);
+    console.log("Server listening on " + port + ".API");
 });
 //# sourceMappingURL=index.js.map
